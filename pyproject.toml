@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mvsep-gui"
+version = "1.0.0"
+description = "GUI for MVSEP music separation API"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "MVSEP", email = "contact@mvsep.com"}
+]
+keywords = ["mvsep", "gui", "music", "separation", "audio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "mvsep-cli>=1.1.0",
+    "PyQt6>=6.0",
+]
+
+[project.scripts]
+mvsep-gui = "mvsep_gui.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/mvsep/mvsep-gui"
+Repository = "https://github.com/mvsep/mvsep-gui"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mvsep_gui*"]
+
+[tool.setuptools.package-data]
+mvsep_gui = ["*.qt.ini"]
