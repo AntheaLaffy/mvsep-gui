@@ -125,6 +125,9 @@ class I18n:
 
             # Settings Dialog
             "language": "语言",
+            "mirror": "MVSEP 镜像源",
+            "mirror_main": "MVSEP 主站",
+            "mirror_mirror": "MVSEP 镜像（中国推荐）",
             "theme": "主题",
             "theme_dark": "纯黑",
             "theme_light": "亮白",
@@ -210,6 +213,9 @@ class I18n:
 
             # Settings Dialog
             "language": "Language",
+            "mirror": "MVSEP Mirror",
+            "mirror_main": "MVSEP Main",
+            "mirror_mirror": "MVSEP Mirror (China Recommended)",
             "theme": "Theme",
             "theme_dark": "Pure Black",
             "theme_light": "Bright White",
@@ -885,6 +891,7 @@ class SettingsDialog(QDialog):
 
     themeChanged = pyqtSignal()
     languageChanged = pyqtSignal()
+    mirrorChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -935,6 +942,29 @@ class SettingsDialog(QDialog):
 
         lang_group.setLayout(lang_layout)
         layout.addWidget(lang_group)
+
+        # Mirror Selection
+        mirror_group = QGroupBox(t("mirror"))
+        mirror_layout = QVBoxLayout()
+
+        self.mirror_buttons = QButtonGroup(self)
+        mirror_options = [
+            ("main", t("mirror_main")),
+            ("mirror", t("mirror_mirror")),
+        ]
+
+        current_mirror = app_state.config.mirror or "main"
+        for mirror_code, mirror_name in mirror_options:
+            radio = QRadioButton(mirror_name)
+            radio.setCheckable(True)
+            if current_mirror == mirror_code:
+                radio.setChecked(True)
+            radio.mirror_code = mirror_code
+            self.mirror_buttons.addButton(radio)
+            mirror_layout.addWidget(radio)
+
+        mirror_group.setLayout(mirror_layout)
+        layout.addWidget(mirror_group)
 
         # Theme Selection
         theme_group = QGroupBox(t("theme"))
@@ -996,6 +1026,17 @@ class SettingsDialog(QDialog):
                     app_state.set_theme(new_theme)
                     debug_log("apply_settings: emitting themeChanged")
                     self.themeChanged.emit()
+                break
+
+        # Get selected mirror
+        for btn in self.mirror_buttons.buttons():
+            if btn.isChecked():
+                new_mirror = btn.mirror_code
+                debug_log(f"apply_settings: selected mirror: {new_mirror}")
+                if new_mirror != app_state.config.mirror:
+                    app_state.config.mirror = new_mirror
+                    debug_log("apply_settings: mirror changed, need to recreate API")
+                    self.mirrorChanged.emit()
                 break
 
         debug_log("apply_settings: closing dialog")
@@ -1268,7 +1309,8 @@ class MainWindow(QWidget):
 
         # Algorithm row
         algo_row = QHBoxLayout()
-        algo_row.addWidget(QLabel(t("algorithm") + ":"))
+        self.algo_label = QLabel(t("algorithm") + ":")
+        algo_row.addWidget(self.algo_label)
 
         # Searchable combo container
         algo_container = QHBoxLayout()
@@ -1325,11 +1367,11 @@ class MainWindow(QWidget):
 
         # Options row
         options_row = QHBoxLayout()
-        options_row.setSpacing(15)
+        options_row.setSpacing(25)
 
         # Option 1
         opt1_layout = QVBoxLayout()
-        opt1_layout.setSpacing(6)
+        opt1_layout.setSpacing(8)
         self.opt1_label = QLabel(t("option1") + ":")
         colors = get_colors()
         self.opt1_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
@@ -1341,7 +1383,7 @@ class MainWindow(QWidget):
 
         # Option 2
         opt2_layout = QVBoxLayout()
-        opt2_layout.setSpacing(6)
+        opt2_layout.setSpacing(10)
         self.opt2_label = QLabel(t("option2") + ":")
         self.opt2_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
         self.opt2_combo = ModernComboBox()
@@ -1352,7 +1394,7 @@ class MainWindow(QWidget):
 
         # Option 3
         opt3_layout = QVBoxLayout()
-        opt3_layout.setSpacing(6)
+        opt3_layout.setSpacing(10)
         self.opt3_label = QLabel(t("option3") + ":")
         self.opt3_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
         self.opt3_combo = ModernComboBox()
@@ -1363,24 +1405,24 @@ class MainWindow(QWidget):
 
         # Output format
         format_layout = QVBoxLayout()
-        format_layout.setSpacing(6)
-        format_label = QLabel(t("output_format") + ":")
-        format_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
+        format_layout.setSpacing(10)
+        self.format_label = QLabel(t("output_format") + ":")
+        self.format_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
         self.format_combo = ModernComboBox()
         self.format_combo.addItems([
             t("mp3_320"), t("wav_16"), t("flac_16"),
             t("m4a_lossy"), t("wav_32"), t("flac_24")
         ])
         self.format_combo.setCurrentIndex(1)
-        format_layout.addWidget(format_label)
+        format_layout.addWidget(self.format_label)
         format_layout.addWidget(self.format_combo)
         options_row.addLayout(format_layout)
 
         # Output directory
         output_layout = QVBoxLayout()
-        output_layout.setSpacing(6)
-        output_label = QLabel(t("output_dir") + ":")
-        output_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
+        output_layout.setSpacing(10)
+        self.output_label = QLabel(t("output_dir") + ":")
+        self.output_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
         output_dir_row = QHBoxLayout()
         self.output_dir_input = ModernLineEdit(os.path.expanduser("~"))
         output_dir_row.addWidget(self.output_dir_input)
@@ -1389,7 +1431,7 @@ class MainWindow(QWidget):
         browse_btn.setFixedWidth(80)
         browse_btn.clicked.connect(self.select_output_dir)
         output_dir_row.addWidget(browse_btn)
-        output_layout.addWidget(output_label)
+        output_layout.addWidget(self.output_label)
         output_layout.addLayout(output_dir_row)
         options_row.addLayout(output_layout)
 
@@ -1435,6 +1477,7 @@ class MainWindow(QWidget):
         dialog = SettingsDialog(self)
         dialog.themeChanged.connect(self.on_theme_changed)
         dialog.languageChanged.connect(self.on_language_changed)
+        dialog.mirrorChanged.connect(self.on_mirror_changed)
         dialog.exec()
 
     def on_theme_changed(self):
@@ -1540,6 +1583,15 @@ class MainWindow(QWidget):
         self._refresh_language()
         debug_log("on_language_changed: done!")
 
+    def on_mirror_changed(self):
+        """Handle mirror change - recreate API"""
+        debug_log("on_mirror_changed: recreating API...")
+        token = app_state.config.api_token
+        if token and self.api:
+            self.init_api(token)
+            self.log_panel.append_log(f"Switched to mirror: {app_state.config.mirror}", "info")
+        debug_log("on_mirror_changed: done!")
+
     def _refresh_language(self):
         """Refresh all text elements"""
         # Update window title
@@ -1557,9 +1609,20 @@ class MainWindow(QWidget):
         self.save_token_btn.setText(t("save"))
         self.refresh_btn.setToolTip(t("refresh"))
 
-        # Update labels
-        # Will need to rebuild config cards for full refresh
-        # For now just update what we can
+        # Update config labels
+        if hasattr(self, 'algo_label'):
+            self.algo_label.setText(t("algorithm") + ":")
+        if hasattr(self, 'opt1_label'):
+            self.opt1_label.setText(t("option1") + ":")
+        if hasattr(self, 'opt2_label'):
+            self.opt2_label.setText(t("option2") + ":")
+        if hasattr(self, 'opt3_label'):
+            self.opt3_label.setText(t("option3") + ":")
+        if hasattr(self, 'format_label'):
+            self.format_label.setText(t("output_format") + ":")
+        if hasattr(self, 'output_label'):
+            self.output_label.setText(t("output_dir") + ":")
+
         debug_log("_refresh_language: done")
 
     def on_file_selected(self, file_path):

@@ -9,7 +9,7 @@ description = "GUI for MVSEP music separation API"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "MVSEP", email = "contact@mvsep.com"}
+    {name = "AntheaLaffy", email = "anthealaffy@gmail.com"}
 ]
 keywords = ["mvsep", "gui", "music", "separation", "audio"]
 classifiers = [
@@ -35,8 +35,8 @@ dependencies = [
 mvsep-gui = "mvsep_gui.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/mvsep/mvsep-gui"
-Repository = "https://github.com/mvsep/mvsep-gui"
+Homepage = "https://github.com/AntheaLaffy/mvsep-gui"
+Repository = "https://github.com/AntheaLaffy/mvsep-gui"
 
 [tool.setuptools.packages.find]
 where = ["."]
