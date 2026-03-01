@@ -1125,6 +1125,11 @@ class MainWindow(QWidget):
         self.setWindowTitle(t("app_title"))
         self.setMinimumSize(800, 700)
 
+        # 设置窗口图标
+        icon_path = os.path.join(os.path.dirname(__file__), "icons", "MVSEP.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         self.api = None
         self.separation_thread = None
         self.algorithms = []
