@@ -42,7 +42,7 @@ pip install mvsep-gui
 
 ```bash
 # Clone repository
-git clone https://github.com/mvsep/mvsep-gui.git
+git clone https://github.com/AntheaLaffy/mvsep-gui.git
 cd mvsep-gui
 
 # Install dependencies
