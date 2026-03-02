@@ -7,25 +7,58 @@ import os
 import sys
 import json
 import argparse
+import datetime
+from pathlib import Path
 
 # Debug mode flag - check environment variable
 DEBUG = os.environ.get("MVSEP_DEBUG", "").lower() in ("1", "true", "yes")
 
+# Log file path
+LOG_DIR = os.path.expanduser("~/.mvsep-gui")
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
 def debug_log(*args, **kwargs):
     """Debug logging function"""
+    message = ' '.join(str(a) for a in args)
     if DEBUG:
-        print(f"[DEBUG] {' '.join(str(a) for a in args)}", **kwargs)
+        print(f"[DEBUG] {message}", **kwargs)
+    # Always write to log file
+    log_to_file(f"DEBUG: {message}")
+
+
+def log_to_file(message: str):
+    """Write message to log file"""
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception as e:
+        print(f"Failed to write log: {e}")
+
+
+def read_log_file() -> str:
+    """Read log file content"""
+    try:
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                return f.read()
+        return ""
+    except Exception as e:
+        return f"Error reading log: {e}"
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QLineEdit, QFileDialog, QMessageBox,
     QGroupBox, QTextEdit, QFrame, QScrollArea, QSizePolicy,
-    QProgressBar, QDialog, QButtonGroup, QRadioButton, QListWidget
+    QProgressBar, QDialog, QButtonGroup, QRadioButton, QListWidget,
+    QTabWidget
 )
 from PyQt6.QtCore import (
     QThread, pyqtSignal, Qt, QPropertyAnimation, QEasingCurve,
-    QSize, QTimer, QMimeData, QSettings
+    QSize, QTimer, QMimeData, QSettings, QUrl
 )
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 from PyQt6.QtGui import (
     QIcon, QColor, QPalette, QFont, QLinearGradient, QPainter,
@@ -98,6 +131,8 @@ class I18n:
             # Actions
             "start_separation": "开始分离",
             "separating": "分离中...",
+            "btn_uploading": "上传中...",
+            "btn_downloading": "下载中...",
 
             # Status
             "status_log": "状态日志",
@@ -144,9 +179,17 @@ class I18n:
 
             # History
             "history": "历史记录",
-            "history_title": "分离历史",
+            "history_title": "历史记录",
             "no_history": "暂无历史记录",
             "load_more": "加载更多",
+
+            # Log
+            "log": "日志",
+            "log_title": "运行日志",
+            "no_log": "暂无日志",
+            "copy_log": "复制日志",
+            "open_log": "打开日志文件",
+            "log_copied": "日志已复制到剪贴板",
         },
         "en": {
             # App
@@ -192,6 +235,8 @@ class I18n:
             # Actions
             "start_separation": "Start Separation",
             "separating": "Separating...",
+            "btn_uploading": "Uploading...",
+            "btn_downloading": "Downloading...",
 
             # Status
             "status_log": "Status Log",
@@ -238,9 +283,17 @@ class I18n:
 
             # History
             "history": "History",
-            "history_title": "Separation History",
+            "history_title": "History",
             "no_history": "No history yet",
             "load_more": "Load More",
+
+            # Log
+            "log": "Log",
+            "log_title": "Application Log",
+            "no_log": "No log yet",
+            "copy_log": "Copy Log",
+            "open_log": "Open Log File",
+            "log_copied": "Log copied to clipboard",
         }
     }
 
@@ -1086,14 +1139,38 @@ class HistoryDialog(QDialog):
         title.setStyleSheet(f"color: {colors['text_primary']}; margin-bottom: 10px;")
         layout.addWidget(title)
 
-        # History list
+        # Tab widget
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                background: {colors['bg_dark']};
+            }}
+            QTabBar::tab {{
+                background: {colors['bg_medium']};
+                color: {colors['text_primary']};
+                padding: 8px 16px;
+                border: 1px solid {colors['border']};
+                border-bottom: none;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }}
+            QTabBar::tab:selected {{
+                background: {colors['bg_dark']};
+            }}
+        """)
+
+        # History tab
+        history_widget = QWidget()
+        history_layout = QVBoxLayout(history_widget)
+
         self.history_list = QListWidget()
         self.history_list.setStyleSheet(f"""
             QListWidget {{
                 background: {colors['bg_dark']};
                 color: {colors['text_primary']};
-                border: 1px solid {colors['border']};
-                border-radius: 8px;
+                border: none;
                 padding: 5px;
             }}
             QListWidget::item {{
@@ -1104,7 +1181,7 @@ class HistoryDialog(QDialog):
                 background: {colors['bg_light']};
             }}
         """)
-        layout.addWidget(self.history_list)
+        history_layout.addWidget(self.history_list)
 
         # Load more button
         self.load_more_btn = QPushButton(t("load_more"))
@@ -1122,7 +1199,81 @@ class HistoryDialog(QDialog):
             }}
         """)
         self.load_more_btn.clicked.connect(self.load_more)
-        layout.addWidget(self.load_more_btn)
+        history_layout.addWidget(self.load_more_btn)
+
+        self.tabs.addTab(history_widget, t("history"))
+
+        # Log tab
+        log_widget = QWidget()
+        log_layout = QVBoxLayout(log_widget)
+
+        # Log text
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setStyleSheet(f"""
+            QTextEdit {{
+                background: {colors['bg_dark']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 10px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 12px;
+            }}
+        """)
+        # Load log content
+        log_content = read_log_file()
+        if log_content:
+            self.log_text.setPlainText(log_content)
+        else:
+            self.log_text.setPlainText(t("no_log"))
+        log_layout.addWidget(self.log_text)
+
+        # Buttons for log
+        log_buttons = QHBoxLayout()
+
+        # Copy button
+        copy_btn = QPushButton(t("copy_log"))
+        copy_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['accent']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background: {colors['accent_hover']};
+            }}
+        """)
+        copy_btn.clicked.connect(self.copy_log)
+        log_buttons.addWidget(copy_btn)
+
+        # Open file button
+        open_btn = QPushButton(t("open_log"))
+        open_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['bg_medium']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background: {colors['bg_light']};
+            }}
+        """)
+        open_btn.clicked.connect(self.open_log_file)
+        log_buttons.addWidget(open_btn)
+
+        log_buttons.addStretch()
+        log_layout.addLayout(log_buttons)
+
+        self.tabs.addTab(log_widget, t("log"))
+
+        layout.addWidget(self.tabs)
 
         # Close button
         close_btn = QPushButton(t("close"))
@@ -1141,6 +1292,19 @@ class HistoryDialog(QDialog):
         """)
         close_btn.clicked.connect(self.close)
         layout.addWidget(close_btn)
+
+    def copy_log(self):
+        """Copy log content to clipboard"""
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.log_text.toPlainText())
+        QMessageBox.information(self, t("log"), t("log_copied"))
+
+    def open_log_file(self):
+        """Open log file with default application"""
+        if os.path.exists(LOG_FILE):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(LOG_FILE))
+        else:
+            QMessageBox.warning(self, t("error"), t("no_log"))
 
     def load_history(self):
         """Load separation history from API"""
@@ -1223,7 +1387,7 @@ class SeparationThread(QThread):
 
     def run(self):
         try:
-            self.statusUpdate.emit("processing")
+            self.statusUpdate.emit("uploading")
             self.progress.emit(t("creating_task"), "info")
 
             result = self.api.create_task(
@@ -1237,11 +1401,13 @@ class SeparationThread(QThread):
 
             self.hash = result.get("hash")
             self.progress.emit(f"{t('task_created')} {self.hash[:12]}...", "info")
+            self.statusUpdate.emit("processing")
             self.progress.emit(t("waiting"), "info")
 
             status_result = self.api.wait_for_completion(self.hash)
 
             if status_result.get("status") == "done":
+                self.statusUpdate.emit("downloading")
                 self.progress.emit(t("downloading"), "info")
                 files = self.api.download_results(self.hash, self.output_dir)
                 file_names = ", ".join([os.path.basename(f) for f in files])
@@ -2039,6 +2205,13 @@ class MainWindow(QWidget):
 
     def on_status_update(self, status):
         self.status_indicator.setStatus(status)
+        # Update button text based on status
+        if status == "uploading":
+            self.separate_btn.setText(t("btn_uploading"))
+        elif status == "processing":
+            self.separate_btn.setText(t("separating"))
+        elif status == "downloading":
+            self.separate_btn.setText(t("btn_downloading"))
 
     def on_finished(self, success, message):
         self.separate_btn.setEnabled(True)
@@ -2072,6 +2245,9 @@ def main():
 
     if DEBUG:
         print("[MVSEP GUI] Debug mode enabled")
+
+    # Log startup
+    log_to_file(f"=== MVSEP GUI Started (debug={DEBUG}) ===")
 
     debug_log("Starting MVSEP GUI...")
 

@@ -32,48 +32,26 @@ A modern and beautiful GUI for MVSEP music separation API.
 
 ## Installation
 
-### From PyPI (Recommended)
-
 ```bash
-pip install mvsep-gui
-```
-
-### From Source
-
-```bash
-# Clone repository
-git clone https://github.com/AntheaLaffy/mvsep-gui.git
-cd mvsep-gui
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install
-pip install -e .
+pip install PyQt6 mvsep-cli
 ```
 
 ## Usage
 
 ```bash
-mvsep-gui
-```
-
-Or run directly:
-
-```bash
-python -m mvsep-gui
+python main.py
 ```
 
 ### Command Line Options
 
 ```bash
-python -m mvsep_gui --debug    # Enable debug mode
+python main.py --debug    # Enable debug mode
 ```
 
 ### Environment Variables
 
 ```bash
-MVSEP_DEBUG=1 python -m mvsep_gui  # Enable debug mode
+MVSEP_DEBUG=1 python main.py  # Enable debug mode
 ```
 
 ## Getting Started

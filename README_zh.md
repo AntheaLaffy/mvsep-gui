@@ -32,48 +32,26 @@
 
 ## 安装
 
-### 从 PyPI 安装（推荐）
-
 ```bash
-pip install mvsep-gui
-```
-
-### 从源码安装
-
-```bash
-# 克隆仓库
-git clone https://github.com/AntheaLaffy/mvsep-gui.git
-cd mvsep-gui
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 安装
-pip install -e .
+pip install PyQt6 mvsep-cli
 ```
 
 ## 使用方法
 
 ```bash
-mvsep-gui
-```
-
-或直接运行：
-
-```bash
-python -m mvsep_gui
+python main.py
 ```
 
 ### 命令行选项
 
 ```bash
-python -m mvsep_gui --debug    # 启用调试模式
+python main.py --debug    # 启用调试模式
 ```
 
 ### 环境变量
 
 ```bash
-MVSEP_DEBUG=1 python -m mvsep_gui  # 启用调试模式
+MVSEP_DEBUG=1 python main.py  # 启用调试模式
 ```
 
 ## 快速开始
