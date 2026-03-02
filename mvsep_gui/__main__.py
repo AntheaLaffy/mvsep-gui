@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QLineEdit, QFileDialog, QMessageBox,
     QGroupBox, QTextEdit, QFrame, QScrollArea, QSizePolicy,
-    QProgressBar, QDialog, QButtonGroup, QRadioButton
+    QProgressBar, QDialog, QButtonGroup, QRadioButton, QListWidget
 )
 from PyQt6.QtCore import (
     QThread, pyqtSignal, Qt, QPropertyAnimation, QEasingCurve,
@@ -141,6 +141,12 @@ class I18n:
             "loading_algorithms": "加载算法中...",
             "loaded_algorithms": "已加载",
             "algorithms": "个算法",
+
+            # History
+            "history": "历史记录",
+            "history_title": "分离历史",
+            "no_history": "暂无历史记录",
+            "load_more": "加载更多",
         },
         "en": {
             # App
@@ -229,6 +235,12 @@ class I18n:
             "loading_algorithms": "Loading algorithms...",
             "loaded_algorithms": "Loaded",
             "algorithms": "algorithms",
+
+            # History
+            "history": "History",
+            "history_title": "Separation History",
+            "no_history": "No history yet",
+            "load_more": "Load More",
         }
     }
 
@@ -273,6 +285,8 @@ class ThemeManager:
             "primary_hover": "#79b8ff",
             "primary_dark": "#388bfd",
             "secondary": "#3fb950",     # 绿色
+            "accent": "#58a6ff",
+            "accent_hover": "#79b8ff",
             "text_primary": "#c9d1d9",
             "text_secondary": "#8b949e",
             "text_muted": "#6e7681",
@@ -293,6 +307,8 @@ class ThemeManager:
             "primary_hover": "#818cf8",
             "primary_dark": "#4f46e5",
             "secondary": "#10b981",     # 柔和绿
+            "accent": "#6366f1",
+            "accent_hover": "#818cf8",
             "text_primary": "#374151",
             "text_secondary": "#6b7280",
             "text_muted": "#9ca3af",
@@ -314,6 +330,7 @@ class ThemeManager:
             "primary_dark": "#ff4d9e",
             "secondary": "#a78bfa",     # 淡紫
             "accent": "#67e8f9",       # 青色
+            "accent_hover": "#8bffff",
             "text_primary": "#fce7f3",  # 淡粉白
             "text_secondary": "#f9a8d4",
             "text_muted": "#c4b5fd",
@@ -1044,6 +1061,136 @@ class SettingsDialog(QDialog):
 
 
 # ============================================================
+# HISTORY DIALOG
+# ============================================================
+
+class HistoryDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setWindowTitle(t("history_title"))
+        self.setMinimumSize(600, 500)
+        self.history_data = []
+        self.offset = 0
+        self.limit = 20
+        self.init_ui()
+        self.load_history()
+
+    def init_ui(self):
+        colors = get_colors()
+        layout = QVBoxLayout(self)
+
+        # Title
+        title = QLabel(t("history_title"))
+        title.setFont(Typography.title_font())
+        title.setStyleSheet(f"color: {colors['text_primary']}; margin-bottom: 10px;")
+        layout.addWidget(title)
+
+        # History list
+        self.history_list = QListWidget()
+        self.history_list.setStyleSheet(f"""
+            QListWidget {{
+                background: {colors['bg_dark']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 5px;
+            }}
+            QListWidget::item {{
+                padding: 10px;
+                border-bottom: 1px solid {colors['border']};
+            }}
+            QListWidget::item:selected {{
+                background: {colors['bg_light']};
+            }}
+        """)
+        layout.addWidget(self.history_list)
+
+        # Load more button
+        self.load_more_btn = QPushButton(t("load_more"))
+        self.load_more_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['accent']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background: {colors['accent_hover']};
+            }}
+        """)
+        self.load_more_btn.clicked.connect(self.load_more)
+        layout.addWidget(self.load_more_btn)
+
+        # Close button
+        close_btn = QPushButton(t("close"))
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['bg_medium']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background: {colors['bg_light']};
+            }}
+        """)
+        close_btn.clicked.connect(self.close)
+        layout.addWidget(close_btn)
+
+    def load_history(self):
+        """Load separation history from API"""
+        if not app_state.config.api_token:
+            self.history_list.addItem(t("error_api_token"))
+            return
+
+        if not hasattr(self.parent_window, 'api') or not self.parent_window.api:
+            self.history_list.addItem(t("error_api_token"))
+            return
+
+        try:
+            result = self.parent_window.api.get_separation_history(
+                start=self.offset,
+                limit=self.limit
+            )
+            history = result.get("history", [])
+            if not history:
+                if self.offset == 0:
+                    self.history_list.addItem(t("no_history"))
+                self.load_more_btn.setEnabled(False)
+                return
+
+            self.history_data.extend(history)
+            self.offset += len(history)
+
+            for item in history:
+                file_name = item.get("original_filename", "Unknown")
+                status = item.get("status", "unknown")
+                date = item.get("created_at", "")
+                hash_id = item.get("hash", "")[:12]
+
+                status_text = {
+                    "done": "✓",
+                    "failed": "✗",
+                    "processing": "⏳",
+                    "waiting": "⏳"
+                }.get(status, status)
+
+                display_text = f"{status_text} {file_name} ({hash_id}) - {date}"
+                self.history_list.addItem(display_text)
+
+        except Exception as e:
+            self.history_list.addItem(f"Error: {str(e)}")
+
+    def load_more(self):
+        self.load_history()
+
+
+# ============================================================
 # BACKGROUND THREAD
 # ============================================================
 
@@ -1096,7 +1243,7 @@ class SeparationThread(QThread):
 
             if status_result.get("status") == "done":
                 self.progress.emit(t("downloading"), "info")
-                files = self.api.download(self.hash, self.output_dir)
+                files = self.api.download_results(self.hash, self.output_dir)
                 file_names = ", ".join([os.path.basename(f) for f in files])
                 self.progress.emit(f"{t('done')} {file_names}", "success")
                 self.statusUpdate.emit("success")
@@ -1242,6 +1389,26 @@ class MainWindow(QWidget):
         # Status indicator
         self.status_indicator = StatusIndicator()
         layout.addWidget(self.status_indicator)
+
+        # History button
+        history_btn = QPushButton("📋")
+        history_btn.setFixedSize(36, 36)
+        history_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['bg_medium']};
+                color: {colors['text_secondary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                font-size: 16px;
+            }}
+            QPushButton:hover {{
+                background: {colors['bg_light']};
+                color: {colors['text_primary']};
+            }}
+        """)
+        history_btn.clicked.connect(self.show_history)
+        history_btn.setToolTip(t("history"))
+        layout.addWidget(history_btn)
 
         # Settings button
         settings_btn = QPushButton("⚙")
@@ -1483,6 +1650,11 @@ class MainWindow(QWidget):
         dialog.themeChanged.connect(self.on_theme_changed)
         dialog.languageChanged.connect(self.on_language_changed)
         dialog.mirrorChanged.connect(self.on_mirror_changed)
+        dialog.exec()
+
+    def show_history(self):
+        """Show history dialog"""
+        dialog = HistoryDialog(self)
         dialog.exec()
 
     def on_theme_changed(self):

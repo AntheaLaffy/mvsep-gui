@@ -42,7 +42,7 @@ pip install mvsep-gui
 
 ```bash
 # 克隆仓库
-git clone https://github.com/mvsep/mvsep-gui.git
+git clone https://github.com/AntheaLaffy/mvsep-gui.git
 cd mvsep-gui
 
 # 安装依赖
