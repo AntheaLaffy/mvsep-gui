@@ -9,6 +9,7 @@ import json
 import argparse
 import datetime
 from pathlib import Path
+from typing import List
 
 # Debug mode flag - check environment variable
 DEBUG = os.environ.get("MVSEP_DEBUG", "").lower() in ("1", "true", "yes")
@@ -16,6 +17,7 @@ DEBUG = os.environ.get("MVSEP_DEBUG", "").lower() in ("1", "true", "yes")
 # Log file path
 LOG_DIR = os.path.expanduser("~/.mvsep-gui")
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
+HISTORY_FILE = os.path.join(LOG_DIR, "history.json")
 
 def debug_log(*args, **kwargs):
     """Debug logging function"""
@@ -46,6 +48,63 @@ def read_log_file() -> str:
         return ""
     except Exception as e:
         return f"Error reading log: {e}"
+
+
+def save_local_history(hash: str, filename: str, status: str = "created"):
+    """Save task to local history"""
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        history = []
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history = json.load(f)
+
+        # Add new entry at the beginning
+        entry = {
+            "hash": hash,
+            "original_filename": filename,
+            "status": status,
+            "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        history.insert(0, entry)
+
+        # Keep only last 100 entries
+        history = history[:100]
+
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Failed to save history: {e}")
+
+
+def load_local_history() -> list:
+    """Load local history"""
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"Failed to load history: {e}")
+        return []
+
+
+def update_local_history(hash: str, status: str):
+    """Update status in local history"""
+    try:
+        if not os.path.exists(HISTORY_FILE):
+            return
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            history = json.load(f)
+
+        for entry in history:
+            if entry.get("hash") == hash:
+                entry["status"] = status
+
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Failed to update history: {e}")
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout,
@@ -163,6 +222,21 @@ class I18n:
             "mirror": "MVSEP 镜像源",
             "mirror_main": "MVSEP 主站",
             "mirror_mirror": "MVSEP 镜像（中国推荐）",
+
+            # Network
+            "network_settings": "网络设置",
+            "timeout": "超时时间（秒）",
+            "proxy": "代理",
+            "proxy_auto": "自动（使用系统代理）",
+            "proxy_manual": "手动设置",
+            "proxy_host": "地址",
+            "proxy_port": "端口",
+            "test_connection": "测试连接",
+            "connection_status": "连接状态",
+            "connection_success": "连接成功！",
+            "connection_failed": "连接失败",
+            "connection_testing": "测试中...",
+
             "theme": "主题",
             "theme_dark": "纯黑",
             "theme_light": "亮白",
@@ -267,6 +341,21 @@ class I18n:
             "mirror": "MVSEP Mirror",
             "mirror_main": "MVSEP Main",
             "mirror_mirror": "MVSEP Mirror (China Recommended)",
+
+            # Network
+            "network_settings": "Network Settings",
+            "timeout": "Timeout (seconds)",
+            "proxy": "Proxy",
+            "proxy_auto": "Auto (Use system proxy)",
+            "proxy_manual": "Manual",
+            "proxy_host": "Host",
+            "proxy_port": "Port",
+            "test_connection": "Test Connection",
+            "connection_status": "Connection Status",
+            "connection_success": "Connection successful!",
+            "connection_failed": "Connection failed",
+            "connection_testing": "Testing...",
+
             "theme": "Theme",
             "theme_dark": "Pure Black",
             "theme_light": "Bright White",
@@ -747,13 +836,18 @@ class DropZone(QFrame):
         super().mousePressEvent(event)
 
     def select_file(self):
+        # Get last audio directory
+        last_dir = app_state.settings.value("audio_dir", "")
         file_path, _ = QFileDialog.getOpenFileName(
             self.window(),
             t("or_click"),
-            "",
+            last_dir,
             "Audio Files (*.mp3 *.wav *.flac *.m4a *.ogg);;All Files (*)"
         )
         if file_path:
+            # Save the directory
+            audio_dir = os.path.dirname(file_path)
+            app_state.settings.setValue("audio_dir", audio_dir)
             self.fileDropped.emit(file_path)
 
     def update_text(self):
@@ -1059,6 +1153,94 @@ class SettingsDialog(QDialog):
         theme_group.setLayout(theme_layout)
         layout.addWidget(theme_group)
 
+        # Network Settings
+        network_group = QGroupBox(t("network_settings"))
+        network_layout = QVBoxLayout()
+        network_layout.setSpacing(10)
+
+        # Timeout
+        timeout_layout = QHBoxLayout()
+        timeout_label = QLabel(t("timeout"))
+        timeout_label.setFixedWidth(120)
+        self.timeout_input = ModernLineEdit()
+        self.timeout_input.setText(str(app_state.settings.value("timeout", "60")))
+        self.timeout_input.setFixedWidth(80)
+        timeout_layout.addWidget(timeout_label)
+        timeout_layout.addWidget(self.timeout_input)
+        network_layout.addLayout(timeout_layout)
+
+        # Proxy mode
+        proxy_mode_layout = QHBoxLayout()
+        proxy_mode_label = QLabel(t("proxy"))
+        proxy_mode_label.setFixedWidth(120)
+        self.proxy_auto_radio = QRadioButton(t("proxy_auto"))
+        self.proxy_manual_radio = QRadioButton(t("proxy_manual"))
+        proxy_mode_layout.addWidget(proxy_mode_label)
+        proxy_mode_layout.addWidget(self.proxy_auto_radio)
+        proxy_mode_layout.addWidget(self.proxy_manual_radio)
+        network_layout.addLayout(proxy_mode_layout)
+
+        # Manual proxy input
+        proxy_input_layout = QHBoxLayout()
+        proxy_input_layout.setSpacing(5)
+        proxy_input_layout.addSpacing(130)
+
+        self.proxy_host_input = ModernLineEdit()
+        self.proxy_host_input.setPlaceholderText(t("proxy_host"))
+        self.proxy_host_input.setText(app_state.settings.value("proxy_host", ""))
+        self.proxy_host_input.setFixedWidth(150)
+        self.proxy_port_input = ModernLineEdit()
+        self.proxy_port_input.setPlaceholderText(t("proxy_port"))
+        self.proxy_port_input.setText(app_state.settings.value("proxy_port", ""))
+        self.proxy_port_input.setFixedWidth(80)
+
+        proxy_input_layout.addWidget(self.proxy_host_input)
+        proxy_input_layout.addWidget(self.proxy_port_input)
+        network_layout.addLayout(proxy_input_layout)
+
+        # Set proxy mode radio
+        proxy_mode = app_state.settings.value("proxy_mode", "auto")
+        if proxy_mode == "manual":
+            self.proxy_manual_radio.setChecked(True)
+            self.proxy_host_input.setEnabled(True)
+            self.proxy_port_input.setEnabled(True)
+        else:
+            self.proxy_auto_radio.setChecked(True)
+            self.proxy_host_input.setEnabled(False)
+            self.proxy_port_input.setEnabled(False)
+
+        # Connect radio to toggle inputs
+        self.proxy_auto_radio.toggled.connect(lambda x: self._on_proxy_mode_changed(x, True))
+        self.proxy_manual_radio.toggled.connect(lambda x: self._on_proxy_mode_changed(x, False))
+
+        # Test connection
+        test_layout = QHBoxLayout()
+        test_layout.setSpacing(10)
+        test_btn = QPushButton(t("test_connection"))
+        test_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['accent']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }}
+            QPushButton:hover {{
+                background: {colors['accent_hover']};
+            }}
+        """)
+        test_btn.clicked.connect(self._test_connection)
+        test_layout.addWidget(test_btn)
+
+        self.connection_status_label = QLabel("")
+        self.connection_status_label.setStyleSheet(f"color: {colors['text_secondary']};")
+        test_layout.addWidget(self.connection_status_label)
+        test_layout.addStretch()
+        network_layout.addLayout(test_layout)
+
+        network_group.setLayout(network_layout)
+        layout.addWidget(network_group)
+
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -1072,6 +1254,47 @@ class SettingsDialog(QDialog):
         btn_layout.addWidget(apply_btn)
 
         layout.addLayout(btn_layout)
+
+    def _on_proxy_mode_changed(self, auto_selected, is_auto):
+        """Handle proxy mode radio change"""
+        self.proxy_host_input.setEnabled(not is_auto)
+        self.proxy_port_input.setEnabled(not is_auto)
+
+    def _test_connection(self):
+        """Test MVSEP API connection"""
+        self.connection_status_label.setText(t("connection_testing"))
+        self.connection_status_label.setStyleSheet(f"color: {get_colors()['warning']};")
+        QApplication.processEvents()
+
+        try:
+            import requests
+            # Get settings
+            proxy_mode = "manual" if self.proxy_manual_radio.isChecked() else "auto"
+            proxy = None
+            if proxy_mode == "manual":
+                host = self.proxy_host_input.text().strip()
+                port = self.proxy_port_input.text().strip()
+                if host and port:
+                    proxy = {"http": f"http://{host}:{port}", "https": f"http://{host}:{port}"}
+
+            timeout = int(self.timeout_input.text().strip() or "60")
+
+            # Get base URL from config
+            from mvsep_cli.config import Config
+            config = Config()
+            base_url = config.base_url
+            test_url = f"{base_url}/api/app/algorithms"
+
+            response = requests.get(test_url, proxies=proxy, timeout=timeout)
+            if response.status_code == 200:
+                self.connection_status_label.setText(t("connection_success"))
+                self.connection_status_label.setStyleSheet(f"color: {get_colors()['success']};")
+            else:
+                self.connection_status_label.setText(f"{t('connection_failed')}: {response.status_code}")
+                self.connection_status_label.setStyleSheet(f"color: {get_colors()['error']};")
+        except Exception as e:
+            self.connection_status_label.setText(f"{t('connection_failed')}: {str(e)}")
+            self.connection_status_label.setStyleSheet(f"color: {get_colors()['error']};")
 
     def apply_settings(self):
         debug_log("apply_settings: starting...")
@@ -1109,6 +1332,15 @@ class SettingsDialog(QDialog):
                     self.mirrorChanged.emit()
                 break
 
+        # Save network settings
+        timeout = self.timeout_input.text().strip() or "60"
+        app_state.settings.setValue("timeout", timeout)
+
+        proxy_mode = "manual" if self.proxy_manual_radio.isChecked() else "auto"
+        app_state.settings.setValue("proxy_mode", proxy_mode)
+        app_state.settings.setValue("proxy_host", self.proxy_host_input.text().strip())
+        app_state.settings.setValue("proxy_port", self.proxy_port_input.text().strip())
+
         debug_log("apply_settings: closing dialog")
         self.close()
 
@@ -1127,7 +1359,9 @@ class HistoryDialog(QDialog):
         self.offset = 0
         self.limit = 20
         self.init_ui()
-        self.load_history()
+        # Delay loading to avoid blocking UI during separation
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, self.load_history)
 
     def init_ui(self):
         colors = get_colors()
@@ -1307,13 +1541,31 @@ class HistoryDialog(QDialog):
             QMessageBox.warning(self, t("error"), t("no_log"))
 
     def load_history(self):
-        """Load separation history from API"""
-        if not app_state.config.api_token:
-            self.history_list.addItem(t("error_api_token"))
-            return
+        """Load separation history - first try API, then fallback to local"""
+        # First load local history
+        local_history = load_local_history()
+        for item in local_history:
+            file_name = item.get("original_filename", "Unknown")
+            status = item.get("status", "unknown")
+            date = item.get("created_at", "")
+            hash_id = item.get("hash", "")[:12] if item.get("hash") else "?"
 
+            status_text = {
+                "done": "✓",
+                "failed": "✗",
+                "waiting": "⏳",
+                "processing": "⏳",
+                "error": "✗"
+            }.get(status, status)
+
+            display_text = f"{status_text} {file_name} ({hash_id}) - {date}"
+            self.history_list.addItem(display_text)
+
+        # Try to load from API if available
         if not hasattr(self.parent_window, 'api') or not self.parent_window.api:
-            self.history_list.addItem(t("error_api_token"))
+            if not local_history:
+                self.history_list.addItem(t("no_history"))
+            self.load_more_btn.setEnabled(False)
             return
 
         try:
@@ -1322,33 +1574,12 @@ class HistoryDialog(QDialog):
                 limit=self.limit
             )
             history = result.get("history", [])
-            if not history:
-                if self.offset == 0:
-                    self.history_list.addItem(t("no_history"))
-                self.load_more_btn.setEnabled(False)
-                return
-
-            self.history_data.extend(history)
-            self.offset += len(history)
-
-            for item in history:
-                file_name = item.get("original_filename", "Unknown")
-                status = item.get("status", "unknown")
-                date = item.get("created_at", "")
-                hash_id = item.get("hash", "")[:12]
-
-                status_text = {
-                    "done": "✓",
-                    "failed": "✗",
-                    "processing": "⏳",
-                    "waiting": "⏳"
-                }.get(status, status)
-
-                display_text = f"{status_text} {file_name} ({hash_id}) - {date}"
-                self.history_list.addItem(display_text)
-
+            if not history and not local_history:
+                self.history_list.addItem(t("no_history"))
+            self.load_more_btn.setEnabled(False)
         except Exception as e:
-            self.history_list.addItem(f"Error: {str(e)}")
+            if not local_history:
+                self.history_list.addItem(f"Error: {str(e)}")
 
     def load_more(self):
         self.load_history()
@@ -1362,6 +1593,8 @@ class SeparationThread(QThread):
     progress = pyqtSignal(str, str)
     finished = pyqtSignal(bool, str)
     statusUpdate = pyqtSignal(str)
+    statusMessage = pyqtSignal(str, str)  # message, level
+    downloadProgress = pyqtSignal(int, int, float)  # downloaded, total, speed
 
     def __init__(
         self,
@@ -1385,10 +1618,115 @@ class SeparationThread(QThread):
         self.output_dir = output_dir
         self.hash = None
 
+    def download_progress_callback(self, downloaded: int, total: int):
+        """Callback for download progress"""
+        self.downloadProgress.emit(downloaded, total)
+
+    def download_with_progress(self, url: str, output_path: str) -> str:
+        """Download file with progress reporting"""
+        import time
+        import requests
+        # Get proxy settings from API if available
+        proxies = getattr(self.api, 'proxies', None)
+        timeout = getattr(self.api, 'timeout', 60)
+        response = requests.get(url, stream=True, proxies=proxies, timeout=(timeout, timeout * 20))
+        response.raise_for_status()
+
+        total_size = int(response.headers.get("content-length", 0))
+
+        with open(output_path, "wb") as f:
+            downloaded = 0
+            start_time = time.time()
+            last_time = start_time
+            last_downloaded = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    # Calculate speed every 0.5 seconds
+                    current_time = time.time()
+                    if current_time - last_time >= 0.5:
+                        elapsed = current_time - last_time
+                        downloaded_since_last = downloaded - last_downloaded
+                        speed = downloaded_since_last / elapsed if elapsed > 0 else 0
+                        last_time = current_time
+                        last_downloaded = downloaded
+                    else:
+                        # Calculate overall speed
+                        total_elapsed = current_time - start_time
+                        speed = downloaded / total_elapsed if total_elapsed > 0 else 0
+
+                    self.downloadProgress.emit(downloaded, total_size, speed)
+
+        return output_path
+
+    def download_results_with_progress(self, hash: str, output_dir: str) -> List[str]:
+        """Download results with progress"""
+        import requests
+
+        debug_log(f"API get_status called for hash: {hash}")
+        result = self.api.get_status(hash)
+        debug_log(f"API get_status returned: {result.get('status')}")
+
+        if result.get("status") != "done":
+            raise Exception(f"Task not completed yet")
+
+        files = result.get("data", {}).get("files", [])
+        if not files:
+            raise Exception("No files to download")
+
+        debug_log(f"Files to download: {files}")
+
+        # Get original filename
+        original_name = hash
+        if hasattr(self.api, '_get_task_meta'):
+            original_name = self.api._get_task_meta(hash) or hash
+
+        debug_log(f"Output directory: {output_dir}")
+        os.makedirs(output_dir, exist_ok=True)
+
+        downloaded_files = []
+        file_urls = []
+        for file_info in files:
+            url = file_info.get("url")
+            if not url:
+                continue
+
+            file_urls.append(url)
+
+            url_basename = os.path.basename(url)
+            url_name = os.path.splitext(url_basename)[0]
+            suffix_parts = url_name.rsplit("_", 1)
+            suffix = suffix_parts[-1] if len(suffix_parts) > 1 else url_name
+
+            ext = os.path.splitext(url)[1] or ".mp3"
+            final_name = f"{original_name}_{suffix}{ext}"
+            output_path = os.path.join(output_dir, final_name)
+
+            debug_log(f"Downloading file: {url}")
+            debug_log(f"Saving to: {output_path}")
+            self.download_with_progress(url, output_path)
+            downloaded_files.append(output_path)
+
+        # Emit URLs for display
+        self.progress.emit(f"URLs: {', '.join(file_urls)}", "info")
+        return downloaded_files
+
     def run(self):
         try:
             self.statusUpdate.emit("uploading")
             self.progress.emit(t("creating_task"), "info")
+
+            # Log full API call details
+            debug_log(f"API create_task called with:")
+            debug_log(f"  audio_file: {self.audio_file}")
+            debug_log(f"  sep_type: {self.sep_type}")
+            debug_log(f"  add_opt1: {self.add_opt1}")
+            debug_log(f"  add_opt2: {self.add_opt2}")
+            debug_log(f"  add_opt3: {self.add_opt3}")
+            debug_log(f"  output_format: {self.output_format}")
+            debug_log(f"  output_dir: {self.output_dir}")
 
             result = self.api.create_task(
                 audio_file=self.audio_file,
@@ -1399,17 +1737,29 @@ class SeparationThread(QThread):
                 output_format=self.output_format,
             )
 
+            debug_log(f"API create_task returned: {result}")
             self.hash = result.get("hash")
-            self.progress.emit(f"{t('task_created')} {self.hash[:12]}...", "info")
+            # Save to local history
+            filename = os.path.basename(self.audio_file)
+            save_local_history(self.hash, filename, "waiting")
+            self.progress.emit(f"{t('task_created')} Hash: {self.hash}", "info")
             self.statusUpdate.emit("processing")
             self.progress.emit(t("waiting"), "info")
 
-            status_result = self.api.wait_for_completion(self.hash)
+            # Status callback for wait_for_completion
+            def on_status(status):
+                self.statusMessage.emit(status, "info")
+                QApplication.processEvents()
+
+            debug_log(f"API wait_for_completion called with hash: {self.hash}")
+            status_result = self.api.wait_for_completion(self.hash, status_callback=on_status)
+            debug_log(f"API wait_for_completion returned status: {status_result.get('status')}")
 
             if status_result.get("status") == "done":
+                update_local_history(self.hash, "done")
                 self.statusUpdate.emit("downloading")
                 self.progress.emit(t("downloading"), "info")
-                files = self.api.download_results(self.hash, self.output_dir)
+                files = self.download_results_with_progress(self.hash, self.output_dir)
                 file_names = ", ".join([os.path.basename(f) for f in files])
                 self.progress.emit(f"{t('done')} {file_names}", "success")
                 self.statusUpdate.emit("success")
@@ -1418,11 +1768,14 @@ class SeparationThread(QThread):
                     f"{t('completed')}\n{t('saved_to')}:\n{self.output_dir}"
                 )
             else:
+                update_local_history(self.hash, "failed")
                 self.statusUpdate.emit("error")
                 self.progress.emit(f"{t('failed')} {status_result.get('status')}", "error")
                 self.finished.emit(False, f"{t('failed')}: {status_result.get('status')}")
 
         except Exception as e:
+            if self.hash:
+                update_local_history(self.hash, "error")
             self.statusUpdate.emit("error")
             self.progress.emit(f"Error: {str(e)}", "error")
             self.finished.emit(False, f"Error: {str(e)}")
@@ -1451,6 +1804,7 @@ class MainWindow(QWidget):
         self._apply_theme()
         self.init_ui()
         self.load_token()
+        self.load_settings()
 
     def _apply_theme(self):
         colors = get_colors()
@@ -1773,6 +2127,21 @@ class MainWindow(QWidget):
         output_layout.addLayout(output_dir_row)
         options_row.addLayout(output_layout)
 
+        # Timeout setting
+        timeout_layout = QVBoxLayout()
+        timeout_layout.setSpacing(10)
+        self.timeout_label = QLabel(t("timeout") + ":")
+        self.timeout_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
+        timeout_row = QHBoxLayout()
+        self.timeout_input = ModernLineEdit()
+        self.timeout_input.setText(app_state.settings.value("timeout", "60"))
+        self.timeout_input.setFixedWidth(80)
+        timeout_row.addWidget(self.timeout_input)
+        timeout_row.addStretch()
+        timeout_layout.addWidget(self.timeout_label)
+        timeout_layout.addLayout(timeout_row)
+        options_row.addLayout(timeout_layout)
+
         options_row.addStretch()
         settings_layout.addLayout(options_row)
 
@@ -1965,6 +2334,8 @@ class MainWindow(QWidget):
             self.format_label.setText(t("output_format") + ":")
         if hasattr(self, 'output_label'):
             self.output_label.setText(t("output_dir") + ":")
+        if hasattr(self, 'timeout_label'):
+            self.timeout_label.setText(t("timeout") + ":")
 
         debug_log("_refresh_language: done")
 
@@ -2002,9 +2373,74 @@ class MainWindow(QWidget):
         else:
             QMessageBox.warning(self, t("error"), t("invalid_token"))
 
+    def load_settings(self):
+        """Load separation settings from QSettings"""
+        settings = app_state.settings
+
+        # Load output directory
+        output_dir = settings.value("output_dir", os.path.expanduser("~"))
+        self.output_dir_input.setText(output_dir)
+
+        # Load output format
+        output_format = int(settings.value("output_format", 1))
+        self.format_combo.setCurrentIndex(output_format)
+
+        # Load timeout
+        timeout = settings.value("timeout", "60")
+        self.timeout_input.setText(timeout)
+
+        # Load algorithm (will be applied after algorithms are loaded)
+        self._saved_algo_index = int(settings.value("algorithm_index", 0))
+
+        # Load algorithm options (will be applied after algorithms are loaded)
+        self._saved_opt1_index = int(settings.value("opt1_index", 0))
+        self._saved_opt2_index = int(settings.value("opt2_index", 0))
+        self._saved_opt3_index = int(settings.value("opt3_index", 0))
+
+        # Connect signals for saving settings
+        self.output_dir_input.textChanged.connect(self._save_output_dir)
+        self.timeout_input.textChanged.connect(self._save_timeout)
+        self.format_combo.currentIndexChanged.connect(self._save_output_format)
+
+    def _save_output_dir(self):
+        app_state.settings.setValue("output_dir", self.output_dir_input.text())
+
+    def _save_timeout(self):
+        app_state.settings.setValue("timeout", self.timeout_input.text())
+
+    def _save_output_format(self, index):
+        app_state.settings.setValue("output_format", index)
+
+    def _save_algorithm_index(self, index):
+        app_state.settings.setValue("algorithm_index", index)
+
+    def _save_opt1_index(self, index):
+        app_state.settings.setValue("opt1_index", index)
+
+    def _save_opt2_index(self, index):
+        app_state.settings.setValue("opt2_index", index)
+
+    def _save_opt3_index(self, index):
+        app_state.settings.setValue("opt3_index", index)
+
     def init_api(self, token):
         try:
-            self.api = MVSEP_API(token, base_url=app_state.config.base_url)
+            # Get network settings
+            timeout = int(app_state.settings.value("timeout", "60"))
+            proxy_mode = app_state.settings.value("proxy_mode", "auto")
+            proxies = None
+            if proxy_mode == "manual":
+                host = app_state.settings.value("proxy_host", "")
+                port = app_state.settings.value("proxy_port", "")
+                if host and port:
+                    proxies = {"http": f"http://{host}:{port}", "https": f"http://{host}:{port}"}
+
+            self.api = MVSEP_API(
+                token,
+                base_url=app_state.config.base_url,
+                timeout=timeout,
+                proxies=proxies
+            )
             self.load_algorithms()
             self.separate_btn.setEnabled(bool(self.current_file))
         except Exception as e:
@@ -2034,8 +2470,20 @@ class MainWindow(QWidget):
 
             self.algo_combo.blockSignals(False)
 
-            if self.algo_combo.count() > 0:
+            # Apply saved algorithm index and options
+            self._applying_saved_opts = True
+            if hasattr(self, '_saved_algo_index') and self._saved_algo_index < self.algo_combo.count():
+                self.algo_combo.setCurrentIndex(self._saved_algo_index)
+            elif self.algo_combo.count() > 0:
                 self.on_algo_changed(0)
+            self._applying_saved_opts = False
+
+            # Connect signal to save algorithm selection
+            self.algo_combo.currentIndexChanged.connect(self._save_algorithm_index)
+            # Connect signals to save opt selections
+            self.opt1_combo.currentIndexChanged.connect(self._save_opt1_index)
+            self.opt2_combo.currentIndexChanged.connect(self._save_opt2_index)
+            self.opt3_combo.currentIndexChanged.connect(self._save_opt3_index)
 
             self.log_panel.append_log(f"{t('loaded_algorithms')} {len(self.algorithms)} {t('algorithms')}", "success")
         except Exception as e:
@@ -2106,6 +2554,16 @@ class MainWindow(QWidget):
         self.opt1_combo.blockSignals(False)
         self.opt2_combo.blockSignals(False)
         self.opt3_combo.blockSignals(False)
+
+        # Apply saved opt indices (only if we just loaded algorithms)
+        if hasattr(self, '_applying_saved_opts') and self._applying_saved_opts:
+            if self.opt1_combo.count() > 0 and hasattr(self, '_saved_opt1_index'):
+                self.opt1_combo.setCurrentIndex(min(self._saved_opt1_index, self.opt1_combo.count() - 1))
+            if self.opt2_combo.count() > 0 and hasattr(self, '_saved_opt2_index'):
+                self.opt2_combo.setCurrentIndex(min(self._saved_opt2_index, self.opt2_combo.count() - 1))
+            if self.opt3_combo.count() > 0 and hasattr(self, '_saved_opt3_index'):
+                self.opt3_combo.setCurrentIndex(min(self._saved_opt3_index, self.opt3_combo.count() - 1))
+            self._applying_saved_opts = False
 
     def on_algo_search_toggled(self, checked):
         """Toggle search input visibility"""
@@ -2198,20 +2656,70 @@ class MainWindow(QWidget):
         self.separation_thread.progress.connect(self.on_progress)
         self.separation_thread.finished.connect(self.on_finished)
         self.separation_thread.statusUpdate.connect(self.on_status_update)
+        self.separation_thread.statusMessage.connect(self.on_status_message)
+        self.separation_thread.downloadProgress.connect(self.on_download_progress)
         self.separation_thread.start()
 
     def on_progress(self, message, level):
         self.log_panel.append_log(message, level)
+
+    def on_status_message(self, message, level):
+        """Handle status messages from wait loop"""
+        self.log_panel.append_log(f"Status: {message}", level)
+        QApplication.processEvents()
 
     def on_status_update(self, status):
         self.status_indicator.setStatus(status)
         # Update button text based on status
         if status == "uploading":
             self.separate_btn.setText(t("btn_uploading"))
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 0)  # Indeterminate
         elif status == "processing":
             self.separate_btn.setText(t("separating"))
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 0)  # Indeterminate
         elif status == "downloading":
             self.separate_btn.setText(t("btn_downloading"))
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 100)  # Determinate
+
+    def on_download_progress(self, downloaded: int, total: int, speed: float = 0):
+        """Handle download progress"""
+        if total > 0:
+            percent = int((downloaded / total) * 100)
+            self.progress_bar.setValue(percent)
+
+            # Format size
+            def format_size(size):
+                if size < 1024:
+                    return f"{size} B"
+                elif size < 1024 * 1024:
+                    return f"{size / 1024:.1f} KB"
+                elif size < 1024 * 1024 * 1024:
+                    return f"{size / (1024 * 1024):.1f} MB"
+                else:
+                    return f"{size / (1024 * 1024 * 1024):.2f} GB"
+
+            # Format speed
+            def format_speed(speed):
+                if speed < 1024:
+                    return f"{speed:.0f} B/s"
+                elif speed < 1024 * 1024:
+                    return f"{speed / 1024:.1f} KB/s"
+                else:
+                    return f"{speed / (1024 * 1024):.2f} MB/s"
+
+            # Update progress bar text
+            size_text = f"{format_size(downloaded)} / {format_size(total)}"
+            speed_text = format_speed(speed) if speed > 0 else ""
+            if speed_text:
+                self.progress_bar.setFormat(f"{percent}% ({size_text}) {speed_text}")
+            else:
+                self.progress_bar.setFormat(f"{percent}% ({size_text})")
+
+            # Force UI update
+            QApplication.processEvents()
 
     def on_finished(self, success, message):
         self.separate_btn.setEnabled(True)
