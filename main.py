@@ -160,6 +160,14 @@ class I18n:
             "api_token_placeholder": "输入您的 MVSEP API Token",
             "save": "保存",
             "get_token": "获取 API Token",
+            "token_help": "获取 Token 帮助",
+            "token_help_title": "如何获取 API Token",
+            "token_help_content": "1. 访问 mvsep.com 主站并登录账号\n"
+                                 "2. 首次点击获取 Token 链接会被重定向到主站\n"
+                                 "3. 请在主站页面右上角点击您的用户名\n"
+                                 "4. 在下拉菜单中点击第一个 \"API\" 选项\n"
+                                 "5. 复制显示的 API Key 并粘贴到此处\n\n"
+                                 "注意：如果浏览器已有登录记录，可直接点击获取 Token 链接",
 
             # Drop Zone
             "drop_zone": "拖放音频文件到此处",
@@ -176,6 +184,8 @@ class I18n:
             "option2": "选项 2",
             "option3": "选项 3",
             "output_format": "输出格式",
+            "download_option": "下载选项",
+            "download_all": "全部下载",
             "output_dir": "输出目录",
             "browse": "浏览",
 
@@ -216,6 +226,7 @@ class I18n:
             "error_algorithms": "加载算法失败:",
             "token_saved": "API Token 已保存!",
             "invalid_token": "请输入有效的 Token",
+            "close": "关闭",
 
             # Settings Dialog
             "language": "语言",
@@ -279,6 +290,14 @@ class I18n:
             "api_token_placeholder": "Enter your MVSEP API token",
             "save": "Save",
             "get_token": "Get API Token",
+            "token_help": "Get Token Help",
+            "token_help_title": "How to Get API Token",
+            "token_help_content": "1. Visit mvsep.com and log in\n"
+                                 "2. First click on 'Get Token' link may redirect to main site\n"
+                                 "3. Click your username in the top-right corner of main site\n"
+                                 "4. Click the first \"API\" option in the dropdown menu\n"
+                                 "5. Copy the displayed API Key and paste it here\n\n"
+                                 "Note: If browser has login history, you can directly click the link",
 
             # Drop Zone
             "drop_zone": "Drop Audio File Here",
@@ -295,6 +314,8 @@ class I18n:
             "option2": "Option 2",
             "option3": "Option 3",
             "output_format": "Output Format",
+            "download_option": "Download Option",
+            "download_all": "Download All",
             "output_dir": "Output Directory",
             "browse": "Browse",
 
@@ -335,6 +356,7 @@ class I18n:
             "error_algorithms": "Error loading algorithms:",
             "token_saved": "API token saved!",
             "invalid_token": "Please enter a valid token",
+            "close": "Close",
 
             # Settings Dialog
             "language": "Language",
@@ -1606,6 +1628,7 @@ class SeparationThread(QThread):
         add_opt3,
         output_format,
         output_dir,
+        file_index=-1,
     ):
         super().__init__()
         self.api = api
@@ -1616,6 +1639,7 @@ class SeparationThread(QThread):
         self.add_opt3 = add_opt3
         self.output_format = output_format
         self.output_dir = output_dir
+        self.file_index = file_index
         self.hash = None
 
     def download_progress_callback(self, downloaded: int, total: int):
@@ -1661,8 +1685,14 @@ class SeparationThread(QThread):
 
         return output_path
 
-    def download_results_with_progress(self, hash: str, output_dir: str) -> List[str]:
-        """Download results with progress"""
+    def download_results_with_progress(self, hash: str, output_dir: str, file_index: int = -1) -> List[str]:
+        """Download results with progress
+
+        Args:
+            hash: Task hash
+            output_dir: Output directory
+            file_index: Index of file to download (-1 for all files)
+        """
         import requests
 
         debug_log(f"API get_status called for hash: {hash}")
@@ -1677,6 +1707,12 @@ class SeparationThread(QThread):
             raise Exception("No files to download")
 
         debug_log(f"Files to download: {files}")
+
+        # Filter files if file_index is specified
+        if file_index >= 0:
+            if file_index >= len(files):
+                raise Exception(f"Invalid file index: {file_index}")
+            files = [files[file_index]]
 
         # Get original filename
         original_name = hash
@@ -1759,7 +1795,7 @@ class SeparationThread(QThread):
                 update_local_history(self.hash, "done")
                 self.statusUpdate.emit("downloading")
                 self.progress.emit(t("downloading"), "info")
-                files = self.download_results_with_progress(self.hash, self.output_dir)
+                files = self.download_results_with_progress(self.hash, self.output_dir, self.file_index)
                 file_names = ", ".join([os.path.basename(f) for f in files])
                 self.progress.emit(f"{t('done')} {file_names}", "success")
                 self.statusUpdate.emit("success")
@@ -1982,11 +2018,37 @@ class MainWindow(QWidget):
 
         api_layout.addLayout(token_row)
 
+        # Token link row with help button
+        token_link_row = QHBoxLayout()
+        token_link_row.setSpacing(8)
         token_hint = QLabel(f"<a href='https://mvsep.com/user-api'>{t('get_token')}</a>")
         token_hint.setOpenExternalLinks(True)
         colors = get_colors()
         token_hint.setStyleSheet(f"color: {colors['primary']}; font-size: 11px;")
-        api_layout.addWidget(token_hint)
+        token_link_row.addWidget(token_hint)
+
+        # Help button
+        self.token_help_btn = QPushButton("?")
+        self.token_help_btn.setFixedSize(20, 20)
+        self.token_help_btn.setToolTip(t("token_help"))
+        self.token_help_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {colors['bg_medium']};
+                color: {colors['text_secondary']};
+                border: 1px solid {colors['border']};
+                border-radius: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: {colors['primary']};
+                color: white;
+            }}
+        """)
+        self.token_help_btn.clicked.connect(self._show_token_help)
+        token_link_row.addWidget(self.token_help_btn)
+
+        token_link_row.addStretch()
+        api_layout.addLayout(token_link_row)
 
         cards.addWidget(api_card)
 
@@ -2109,6 +2171,20 @@ class MainWindow(QWidget):
         format_layout.addWidget(self.format_label)
         format_layout.addWidget(self.format_combo)
         options_row.addLayout(format_layout)
+
+        # Download option
+        download_opt_layout = QVBoxLayout()
+        download_opt_layout.setSpacing(10)
+        self.download_opt_label = QLabel(t("download_option") + ":")
+        self.download_opt_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 11px;")
+        self.download_opt_combo = ModernComboBox()
+        self.download_opt_combo.addItems([
+            t("download_all"), "Vocals", "Instrumental", "Drums", "Bass", "Other"
+        ])
+        self.download_opt_combo.setCurrentIndex(0)
+        download_opt_layout.addWidget(self.download_opt_label)
+        download_opt_layout.addWidget(self.download_opt_combo)
+        options_row.addLayout(download_opt_layout)
 
         # Output directory
         output_layout = QVBoxLayout()
@@ -2256,6 +2332,7 @@ class MainWindow(QWidget):
         self.opt2_combo._update_style()
         self.opt3_combo._update_style()
         self.format_combo._update_style()
+        self.download_opt_combo._update_style()
 
         # Update progress bar
         self.progress_bar._update_style()
@@ -2332,6 +2409,10 @@ class MainWindow(QWidget):
             self.opt3_label.setText(t("option3") + ":")
         if hasattr(self, 'format_label'):
             self.format_label.setText(t("output_format") + ":")
+        if hasattr(self, 'download_opt_label'):
+            self.download_opt_label.setText(t("download_option") + ":")
+        if hasattr(self, 'download_opt_combo'):
+            self._update_download_options()
         if hasattr(self, 'output_label'):
             self.output_label.setText(t("output_dir") + ":")
         if hasattr(self, 'timeout_label'):
@@ -2373,6 +2454,28 @@ class MainWindow(QWidget):
         else:
             QMessageBox.warning(self, t("error"), t("invalid_token"))
 
+    def _show_token_help(self):
+        """Show token help dialog"""
+        msg = QDialog(self)
+        msg.setWindowTitle(t("token_help_title"))
+        msg.setMinimumWidth(400)
+
+        layout = QVBoxLayout(msg)
+
+        # Content
+        content = QLabel(t("token_help_content"))
+        content.setWordWrap(True)
+        content.setTextFormat(Qt.TextFormat.RichText)
+        content.setStyleSheet("font-size: 12px; padding: 10px;")
+        layout.addWidget(content)
+
+        # Close button
+        close_btn = ModernButton(t("close"), primary=True)
+        close_btn.clicked.connect(msg.accept)
+        layout.addWidget(close_btn)
+
+        msg.exec()
+
     def load_settings(self):
         """Load separation settings from QSettings"""
         settings = app_state.settings
@@ -2384,6 +2487,10 @@ class MainWindow(QWidget):
         # Load output format
         output_format = int(settings.value("output_format", 1))
         self.format_combo.setCurrentIndex(output_format)
+
+        # Load download option
+        download_opt = int(settings.value("download_opt", 0))
+        self.download_opt_combo.setCurrentIndex(download_opt)
 
         # Load timeout
         timeout = settings.value("timeout", "60")
@@ -2401,6 +2508,7 @@ class MainWindow(QWidget):
         self.output_dir_input.textChanged.connect(self._save_output_dir)
         self.timeout_input.textChanged.connect(self._save_timeout)
         self.format_combo.currentIndexChanged.connect(self._save_output_format)
+        self.download_opt_combo.currentIndexChanged.connect(self._save_download_opt)
 
     def _save_output_dir(self):
         app_state.settings.setValue("output_dir", self.output_dir_input.text())
@@ -2410,6 +2518,9 @@ class MainWindow(QWidget):
 
     def _save_output_format(self, index):
         app_state.settings.setValue("output_format", index)
+
+    def _save_download_opt(self, index):
+        app_state.settings.setValue("download_opt", index)
 
     def _save_algorithm_index(self, index):
         app_state.settings.setValue("algorithm_index", index)
@@ -2422,6 +2533,20 @@ class MainWindow(QWidget):
 
     def _save_opt3_index(self, index):
         app_state.settings.setValue("opt3_index", index)
+
+    def _on_opt_changed(self, index):
+        """Handle option change - save and update download options"""
+        # Determine which combo sent the signal
+        sender = self.sender()
+        if sender == self.opt1_combo:
+            app_state.settings.setValue("opt1_index", index)
+        elif sender == self.opt2_combo:
+            app_state.settings.setValue("opt2_index", index)
+        elif sender == self.opt3_combo:
+            app_state.settings.setValue("opt3_index", index)
+
+        # Update download options based on new model selection
+        self._update_download_options()
 
     def init_api(self, token):
         try:
@@ -2480,10 +2605,10 @@ class MainWindow(QWidget):
 
             # Connect signal to save algorithm selection
             self.algo_combo.currentIndexChanged.connect(self._save_algorithm_index)
-            # Connect signals to save opt selections
-            self.opt1_combo.currentIndexChanged.connect(self._save_opt1_index)
-            self.opt2_combo.currentIndexChanged.connect(self._save_opt2_index)
-            self.opt3_combo.currentIndexChanged.connect(self._save_opt3_index)
+            # Connect signals to save opt selections and update download options
+            self.opt1_combo.currentIndexChanged.connect(self._on_opt_changed)
+            self.opt2_combo.currentIndexChanged.connect(self._on_opt_changed)
+            self.opt3_combo.currentIndexChanged.connect(self._on_opt_changed)
 
             self.log_panel.append_log(f"{t('loaded_algorithms')} {len(self.algorithms)} {t('algorithms')}", "success")
         except Exception as e:
@@ -2555,6 +2680,9 @@ class MainWindow(QWidget):
         self.opt2_combo.blockSignals(False)
         self.opt3_combo.blockSignals(False)
 
+        # Update download options based on algorithm
+        self._update_download_options(algo)
+
         # Apply saved opt indices (only if we just loaded algorithms)
         if hasattr(self, '_applying_saved_opts') and self._applying_saved_opts:
             if self.opt1_combo.count() > 0 and hasattr(self, '_saved_opt1_index'):
@@ -2564,6 +2692,121 @@ class MainWindow(QWidget):
             if self.opt3_combo.count() > 0 and hasattr(self, '_saved_opt3_index'):
                 self.opt3_combo.setCurrentIndex(min(self._saved_opt3_index, self.opt3_combo.count() - 1))
             self._applying_saved_opts = False
+
+    def _parse_track_types_from_model(self, algo):
+        """Parse track types from current model selection"""
+        import re
+        track_types = []
+
+        # Get current model selection from opt combos
+        model_text = ""
+        if self.opt1_combo.count() > 0 and self.opt1_combo.isVisible():
+            model_text = self.opt1_combo.currentText()
+        elif self.opt2_combo.count() > 0 and self.opt2_combo.isVisible():
+            model_text = self.opt2_combo.currentText()
+        elif self.opt3_combo.count() > 0 and self.opt3_combo.isVisible():
+            model_text = self.opt3_combo.currentText()
+
+        # Check if model text contains stems info like "(vocals, drums, bass, other)"
+        stems_match = re.search(r'\(([^)]+)\)', model_text)
+        if stems_match:
+            stems = stems_match.group(1).lower()
+            # Parse stems
+            if "vocals" in stems:
+                track_types.append("Vocals")
+            if "music" in stems or "instrum" in stems:
+                track_types.append("Instrumental")
+            if "drums" in stems:
+                track_types.append("Drums")
+            if "bass" in stems:
+                track_types.append("Bass")
+            if "piano" in stems:
+                track_types.append("Piano")
+            if "guitar" in stems:
+                track_types.append("Guitar")
+            if "other" in stems:
+                track_types.append("Other")
+            # Check for back vocals / lead vocals
+            if "lead" in stems or "back" in stems:
+                track_types.append("Back Vocals")
+
+        return track_types
+
+    def _update_download_options(self, algo=None):
+        """Update download options based on algorithm name and model selection"""
+        # Default track types
+        default_tracks = ["Vocals", "Instrumental", "Drums", "Bass", "Other"]
+
+        # Track types to collect
+        track_types = []
+
+        # If no algo provided, get current algorithm
+        if not algo and self.algorithms:
+            render_id = self.algo_combo.currentData()
+            for a in self.algorithms:
+                if a.get("render_id") == render_id:
+                    algo = a
+                    break
+
+        if algo:
+            # Step 1: Try to parse from MODEL first (higher priority)
+            model_tracks = self._parse_track_types_from_model(algo)
+            if model_tracks:
+                track_types = model_tracks
+            else:
+                # Step 2: If model has no stems info, try algorithm name
+                algo_name = algo.get("name", "").lower()
+
+                # Parse track types from algorithm name
+                if "vocals" in algo_name:
+                    track_types.append("Vocals")
+                if "instrum" in algo_name:
+                    track_types.append("Instrumental")
+                if "drums" in algo_name:
+                    track_types.append("Drums")
+                if "bass" in algo_name:
+                    track_types.append("Bass")
+                if "other" in algo_name:
+                    track_types.append("Other")
+                # Check for guitar and piano in algorithm name (e.g., "All-In" models)
+                if "guitar" in algo_name:
+                    track_types.append("Guitar")
+                if "piano" in algo_name:
+                    track_types.append("Piano")
+                if "lead" in algo_name or "back" in algo_name:
+                    track_types.append("Back Vocals")
+
+            # Also check model options for stems info (e.g., "2 stems (vocals, music)")
+            if not track_types:
+                model_tracks = self._parse_track_types_from_model(algo)
+                if model_tracks:
+                    track_types = model_tracks
+
+        # If no tracks parsed, use default
+        if not track_types:
+            track_types = default_tracks
+
+        # Save current selection
+        current_index = self.download_opt_combo.currentIndex()
+        current_data = self.download_opt_combo.currentData()
+
+        # Update combo
+        self.download_opt_combo.blockSignals(True)
+        self.download_opt_combo.clear()
+        self.download_opt_combo.addItem(t("download_all"), -1)
+        for i, track in enumerate(track_types):
+            self.download_opt_combo.addItem(track, i)
+
+        # Try to restore selection
+        if current_data == -1:
+            self.download_opt_combo.setCurrentIndex(0)
+        elif current_data is not None and current_data >= 0:
+            # Find matching track index
+            idx = current_data + 1  # +1 because first item is "all"
+            if idx < self.download_opt_combo.count():
+                self.download_opt_combo.setCurrentIndex(idx)
+
+        self.download_opt_combo.blockSignals(False)
 
     def on_algo_search_toggled(self, checked):
         """Toggle search input visibility"""
@@ -2633,6 +2876,10 @@ class MainWindow(QWidget):
         )
         output_format = self.format_combo.currentIndex()
 
+        # Get download option: -1 for all, 0-4 for specific track
+        download_opt = self.download_opt_combo.currentIndex()
+        file_index = -1 if download_opt == 0 else download_opt - 1
+
         self.separate_btn.setEnabled(False)
         self.separate_btn.setText(t("separating"))
         self.progress_bar.setVisible(True)
@@ -2652,6 +2899,7 @@ class MainWindow(QWidget):
             add_opt3,
             output_format,
             output_dir,
+            file_index,
         )
         self.separation_thread.progress.connect(self.on_progress)
         self.separation_thread.finished.connect(self.on_finished)
