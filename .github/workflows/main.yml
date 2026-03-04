@@ -1,0 +1,36 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main" ] # 或者是你的主分支名称
+  workflow_dispatch: # 允许手动点击运行
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10' # 根据你的项目需要修改版本
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller # 使用 PyInstaller 进行打包
+
+    - name: Build EXE
+      run: |
+        # 假设你的启动文件是 main.py 或 gui.py
+        # --onefile 打包成单个文件, --windowed 不显示控制台窗口
+        pyinstaller --onefile --windowed main.py 
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mvsep-gui-windows
+        path: dist/*.exe
