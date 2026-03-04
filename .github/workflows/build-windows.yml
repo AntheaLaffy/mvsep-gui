@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install PyQt6 mvsep-cli pyinstaller
+          pip install -r requirements.txt
 
       - name: Build Windows executable
         run: |
