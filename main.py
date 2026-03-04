@@ -138,7 +138,8 @@ class I18n:
     # Language code to name
     LANGUAGES = {
         "zh": "中文",
-        "en": "English"
+        "en": "English",
+        "ja": "日本語"
     }
 
     # Default language
@@ -162,11 +163,11 @@ class I18n:
             "get_token": "获取 API Token",
             "token_help": "获取 Token 帮助",
             "token_help_title": "如何获取 API Token",
-            "token_help_content": "1. 访问 mvsep.com 主站并登录账号\n"
-                                 "2. 首次点击获取 Token 链接会被重定向到主站\n"
-                                 "3. 请在主站页面右上角点击您的用户名\n"
-                                 "4. 在下拉菜单中点击第一个 \"API\" 选项\n"
-                                 "5. 复制显示的 API Key 并粘贴到此处\n\n"
+            "token_help_content": "1. 访问 mvsep.com 主站并登录账号<br>"
+                                 "2. 首次点击获取 Token 链接会被重定向到主站<br>"
+                                 "3. 请在主站页面右上角点击您的用户名<br>"
+                                 "4. 在下拉菜单中点击第一个 \"API\" 选项<br>"
+                                 "5. 复制显示的 API Key 并粘贴到此处<br><br>"
                                  "注意：如果浏览器已有登录记录，可直接点击获取 Token 链接",
 
             # Drop Zone
@@ -292,11 +293,11 @@ class I18n:
             "get_token": "Get API Token",
             "token_help": "Get Token Help",
             "token_help_title": "How to Get API Token",
-            "token_help_content": "1. Visit mvsep.com and log in\n"
-                                 "2. First click on 'Get Token' link may redirect to main site\n"
-                                 "3. Click your username in the top-right corner of main site\n"
-                                 "4. Click the first \"API\" option in the dropdown menu\n"
-                                 "5. Copy the displayed API Key and paste it here\n\n"
+            "token_help_content": "1. Visit mvsep.com and log in<br>"
+                                 "2. First click on 'Get Token' link may redirect to main site<br>"
+                                 "3. Click your username in the top-right corner of main site<br>"
+                                 "4. Click the first \"API\" option in the dropdown menu<br>"
+                                 "5. Copy the displayed API Key and paste it here<br><br>"
                                  "Note: If browser has login history, you can directly click the link",
 
             # Drop Zone
@@ -405,6 +406,136 @@ class I18n:
             "copy_log": "Copy Log",
             "open_log": "Open Log File",
             "log_copied": "Log copied to clipboard",
+        },
+        "ja": {
+            # App
+            "app_title": "MVSEP スタジオ",
+            "app_subtitle": "音楽分離ツール",
+
+            # Header
+            "settings": "設定",
+
+            # API Config
+            "api_config": "API設定",
+            "api_token": "APIトークン",
+            "api_token_placeholder": "MVSEP APIトークンを入力",
+            "save": "保存",
+            "get_token": "APIトークンを取得",
+            "token_help": "トークン取得ヘルプ",
+            "token_help_title": "APIトークンの取得方法",
+            "token_help_content": "1. mvsep.comにアクセスしてログイン<br>"
+                                 "2. 初めて「トークン取得」リンクをクリックするとメインサイトにリダイレクトされます<br>"
+                                 "3. メインサイトの右上のユーザー名をクリック<br>"
+                                 "4. ドロップダウンメニューの最初の「API」をクリック<br>"
+                                 "5. 表示されたAPIキーをコピーしてここに貼り付け<br><br>"
+                                 "注意：ブラウザにログイン履歴がある場合は、直接リンクをクリックできます",
+
+            # Drop Zone
+            "drop_zone": "音声ファイルをここにドロップ",
+            "or_click": "またはクリックして選択",
+            "supported_formats": "対応形式: MP3, WAV, FLAC, M4A, OGG",
+            "file_ready": "ファイル準備完了",
+
+            # Settings
+            "separation_settings": "分離設定",
+            "algorithm": "アルゴリズム",
+            "search_algorithm": "アルゴリズムを検索...",
+            "refresh": "更新",
+            "option1": "オプション 1",
+            "option2": "オプション 2",
+            "option3": "オプション 3",
+            "output_format": "出力形式",
+            "download_option": "ダウンロードオプション",
+            "download_all": "すべてダウンロード",
+            "output_dir": "出力ディレクトリ",
+            "browse": "参照",
+
+            # Formats
+            "mp3_320": "MP3 (320 kbps)",
+            "wav_16": "WAV (16 bit)",
+            "flac_16": "FLAC (16 bit)",
+            "m4a_lossy": "M4A (可変)",
+            "wav_32": "WAV (32 bit)",
+            "flac_24": "FLAC (24 bit)",
+
+            # Actions
+            "start_separation": "分離開始",
+            "separating": "分離中...",
+            "btn_uploading": "アップロード中...",
+            "btn_downloading": "ダウンロード中...",
+
+            # Status
+            "status_log": "ステータスログ",
+            "idle": "待機中",
+            "processing": "処理中",
+            "success": "成功",
+            "error": "エラー",
+
+            # Messages
+            "creating_task": "分離タスクを作成中...",
+            "task_created": "タスク作成完了! ハッシュ:",
+            "waiting": "完了を待機中...",
+            "downloading": "結果をダウンロード中...",
+            "done": "完了! ファイル:",
+            "failed": "失敗:",
+            "completed": "分離完了!",
+            "saved_to": "ファイルを保存しました:",
+
+            # Errors
+            "error_api_token": "まずAPIトークンを入力して保存してください",
+            "error_file": "音声ファイルを選択してください",
+            "error_algorithms": "アルゴリズムの読み込みエラー:",
+            "token_saved": "APIトークンを保存しました!",
+            "invalid_token": "有効なトークンを入力してください",
+            "close": "閉じる",
+
+            # Settings Dialog
+            "language": "言語",
+            "mirror": "MVSEPミラー",
+            "mirror_main": "MVSEP 本家",
+            "mirror_mirror": "MVSEP ミラー（中国推奨）",
+
+            # Network
+            "network_settings": "ネットワーク設定",
+            "timeout": "タイムアウト（秒）",
+            "proxy": "プロキシ",
+            "proxy_auto": "自動（システムプロキシを使用）",
+            "proxy_manual": "手動設定",
+            "proxy_host": "アドレス",
+            "proxy_port": "ポート",
+            "test_connection": "接続テスト",
+            "connection_status": "接続状態",
+            "connection_success": "接続成功!",
+            "connection_failed": "接続失敗",
+            "connection_testing": "テスト中...",
+
+            "theme": "テーマ",
+            "theme_dark": "純黒",
+            "theme_light": "純白",
+            "theme_otaku": "ライトパープル",
+            "theme_system": "システムテーマ",
+            "close": "閉じる",
+            "apply": "適用",
+            "restart_required": "一部の設定は再起動後に反映されます",
+
+            # Misc
+            "loading_algorithms": "アルゴリズムを読み込み中...",
+            "loaded_algorithms": "読み込み完了",
+            "algorithms": "個のアルゴリズム",
+
+            # History
+            "history": "履歴",
+            "history_title": "履歴",
+            "no_history": "履歴がありません",
+            "load_more": "もっと読み込む",
+
+            # Log
+            "log": "ログ",
+            "log_title": "アプリケーションログ",
+            "no_log": "ログがありません",
+            "copy_log": "ログをコピー",
+            "open_log": "ログファイルを開く",
+            "log_copied": "ログをクリップボードにコピーしました",
         }
     }
 
@@ -2001,9 +2132,9 @@ class MainWindow(QWidget):
         api_layout = QVBoxLayout(api_card)
         api_layout.setSpacing(12)
 
-        api_title = QLabel(t("api_config"))
-        api_title.setFont(Typography.heading_font())
-        api_layout.addWidget(api_title)
+        self.api_title = QLabel(t("api_config"))
+        self.api_title.setFont(Typography.heading_font())
+        api_layout.addWidget(self.api_title)
 
         token_row = QHBoxLayout()
         self.token_input = ModernLineEdit(t("api_token_placeholder"))
@@ -2021,11 +2152,11 @@ class MainWindow(QWidget):
         # Token link row with help button
         token_link_row = QHBoxLayout()
         token_link_row.setSpacing(8)
-        token_hint = QLabel(f"<a href='https://mvsep.com/user-api'>{t('get_token')}</a>")
-        token_hint.setOpenExternalLinks(True)
+        self.token_hint = QLabel(f"<a href='https://mvsep.com/user-api'>{t('get_token')}</a>")
+        self.token_hint.setOpenExternalLinks(True)
         colors = get_colors()
-        token_hint.setStyleSheet(f"color: {colors['primary']}; font-size: 11px;")
-        token_link_row.addWidget(token_hint)
+        self.token_hint.setStyleSheet(f"color: {colors['primary']}; font-size: 11px;")
+        token_link_row.addWidget(self.token_hint)
 
         # Help button
         self.token_help_btn = QPushButton("?")
@@ -2057,9 +2188,9 @@ class MainWindow(QWidget):
         settings_layout = QVBoxLayout(settings_card)
         settings_layout.setSpacing(12)
 
-        settings_title = QLabel(t("separation_settings"))
-        settings_title.setFont(Typography.heading_font())
-        settings_layout.addWidget(settings_title)
+        self.settings_title = QLabel(t("separation_settings"))
+        self.settings_title.setFont(Typography.heading_font())
+        settings_layout.addWidget(self.settings_title)
 
         # Algorithm row
         algo_row = QHBoxLayout()
@@ -2235,9 +2366,9 @@ class MainWindow(QWidget):
 
         # Title row
         title_row = QHBoxLayout()
-        title = QLabel(t("status_log"))
-        title.setFont(Typography.heading_font())
-        title_row.addWidget(title)
+        self.status_log_title = QLabel(t("status_log"))
+        self.status_log_title.setFont(Typography.heading_font())
+        title_row.addWidget(self.status_log_title)
 
         title_row.addStretch()
 
@@ -2397,8 +2528,16 @@ class MainWindow(QWidget):
         self.separate_btn.setText(t("start_separation"))
         self.save_token_btn.setText(t("save"))
         self.refresh_btn.setToolTip(t("refresh"))
+        if hasattr(self, 'token_hint'):
+            self.token_hint.setText(f"<a href='https://mvsep.com/user-api'>{t('get_token')}</a>")
 
         # Update config labels
+        if hasattr(self, 'api_title'):
+            self.api_title.setText(t("api_config"))
+        if hasattr(self, 'settings_title'):
+            self.settings_title.setText(t("separation_settings"))
+        if hasattr(self, 'status_log_title'):
+            self.status_log_title.setText(t("status_log"))
         if hasattr(self, 'algo_label'):
             self.algo_label.setText(t("algorithm") + ":")
         if hasattr(self, 'opt1_label'):

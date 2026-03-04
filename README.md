@@ -1,6 +1,6 @@
 # MVSEP GUI
 
-[English](./README.md) | [中文](./README_zh.md)
+[English](./README.md) | [中文](./README_zh.md) | [日本語](./README_ja.md)
 
 A modern and beautiful GUI for MVSEP music separation API.
 
@@ -8,7 +8,7 @@ A modern and beautiful GUI for MVSEP music separation API.
 
 - **Modern UI Design** - Beautiful interface with multiple theme support
 - **Theme Support** - Pure Black, Bright White, Light Purple themes
-- **Multi-language** - English and Chinese (中文) support
+- **Multi-language** - English, Chinese (中文), and Japanese (日本語) support
 - **Algorithm Search** - Fuzzy search through algorithms
 - **Drag & Drop** - Drag audio files directly into the app
 - **Real-time Progress** - Live status log, progress bar with speed display
