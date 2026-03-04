@@ -1,2 +1,3 @@
 PyQt6>=6.0
 mvsep-cli>=1.2
+pyinstaller>=6.0
