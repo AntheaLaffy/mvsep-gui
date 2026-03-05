@@ -1714,28 +1714,71 @@ class HistoryDialog(QDialog):
             display_text = f"{status_text} {file_name} ({hash_id}) - {date}"
             self.history_list.addItem(display_text)
 
-        # Try to load from API if available
+        # Try to load from API if available - use background thread
         if not hasattr(self.parent_window, 'api') or not self.parent_window.api:
             if not local_history:
                 self.history_list.addItem(t("no_history"))
             self.load_more_btn.setEnabled(False)
             return
 
+        # Load API history in background thread
+        self.load_api_history_background(local_history)
+
+    def load_api_history_background(self, local_history):
+        """Load API history in background thread"""
+        if hasattr(self, 'history_thread') and self.history_thread.isRunning():
+            return
+
+        self.history_thread = HistoryLoadThread(
+            self.parent_window.api,
+            self.offset,
+            self.limit
+        )
+        self.history_thread.history_loaded.connect(
+            lambda history: self._on_api_history_loaded(history, local_history)
+        )
+        self.history_thread.error_occurred.connect(
+            lambda error: self._on_api_history_error(error, local_history)
+        )
+        self.history_thread.start()
+
+    def _on_api_history_loaded(self, history, local_history):
+        """Handle API history loaded"""
+        if not history and not local_history:
+            self.history_list.addItem(t("no_history"))
+        self.load_more_btn.setEnabled(False)
+
+    def _on_api_history_error(self, error, local_history):
+        """Handle API history error"""
+        if not local_history:
+            self.history_list.addItem(f"Error: {str(error)}")
+        self.load_more_btn.setEnabled(False)
+
+    def load_more(self):
+        self.load_history()
+
+
+class HistoryLoadThread(QThread):
+    """Background thread for loading history from API"""
+    history_loaded = pyqtSignal(list)  # history list
+    error_occurred = pyqtSignal(str)  # error message
+
+    def __init__(self, api, offset, limit):
+        super().__init__()
+        self.api = api
+        self.offset = offset
+        self.limit = limit
+
+    def run(self):
         try:
-            result = self.parent_window.api.get_separation_history(
+            result = self.api.get_separation_history(
                 start=self.offset,
                 limit=self.limit
             )
             history = result.get("history", [])
-            if not history and not local_history:
-                self.history_list.addItem(t("no_history"))
-            self.load_more_btn.setEnabled(False)
+            self.history_loaded.emit(history)
         except Exception as e:
-            if not local_history:
-                self.history_list.addItem(f"Error: {str(e)}")
-
-    def load_more(self):
-        self.load_history()
+            self.error_occurred.emit(str(e))
 
 
 # ============================================================
